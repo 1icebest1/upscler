@@ -42,7 +42,7 @@ model_categories = {
 
 class UpscaleThread(QThread):
     log_signal = Signal(str)
-    progress_signal = Signal(int, int)  # current_frame, total_frames
+    progress_signal = Signal(int, int)  
     done_signal = Signal(bool)
 
     def __init__(self, video_path, output_name, category, model_name, scale):
@@ -67,7 +67,7 @@ class UpscaleThread(QThread):
             os.makedirs("upscaled", exist_ok=True)
             os.makedirs("res", exist_ok=True)
 
-            # Очистка попередніх кадрів
+            
             for folder in ["frames", "upscaled"]:
                 for f in os.listdir(folder):
                     if self.stop_requested:
@@ -83,7 +83,7 @@ class UpscaleThread(QThread):
                 self.done_signal.emit(False)
                 return
 
-            # Отримання інформації про відео
+            
             def get_video_info(path):
                 cmd = ['ffprobe', '-v', 'error',
                        '-select_streams', 'v:0',
@@ -92,7 +92,7 @@ class UpscaleThread(QThread):
                        path]
                 res = subprocess.run(cmd, capture_output=True, text=True)
 
-                # Значення за замовчуванням
+                
                 width = 0
                 height = 0
                 fps = 30.0
@@ -107,7 +107,7 @@ class UpscaleThread(QThread):
                         width = int(stream.get('width', 0))
                         height = int(stream.get('height', 0))
 
-                        # Обробка FPS
+                        
                         fps_str = stream.get('r_frame_rate', '0/0')
                         if fps_str and '/' in fps_str:
                             num, den = fps_str.split('/')
@@ -129,7 +129,7 @@ class UpscaleThread(QThread):
                         duration = float(stream.get('duration', 0.0))
                         total_frames = int(stream.get('nb_frames', 0))
 
-                        # Розрахунок кадрів за тривалістю
+                    
                         if total_frames == 0 and duration > 0 and fps > 0:
                             total_frames = int(duration * fps)
                 except Exception as e:
@@ -147,12 +147,12 @@ class UpscaleThread(QThread):
                 self.done_signal.emit(False)
                 return
 
-            # Витяг аудіо з відео (якщо воно є)
+            
             self.log("[✔] Перевірка наявності аудіо...")
             audio_path = "temp_audio.aac"
             has_audio = False
 
-            # Перевірка чи є аудіо доріжка
+        
             check_audio_cmd = [
                 "ffprobe", "-v", "error",
                 "-select_streams", "a",
@@ -179,7 +179,7 @@ class UpscaleThread(QThread):
             else:
                 self.log("[i] Аудіо доріжка не знайдена")
 
-            # Витяг кадрів з відео
+            
             self.log("[✔] Витяг кадрів з відео...")
             ffmpeg_cmd = [
                 "ffmpeg", "-y", "-i", self.video_path,
@@ -192,7 +192,7 @@ class UpscaleThread(QThread):
                 self.done_signal.emit(False)
                 return
 
-            # Підрахунок реально витягнутих кадрів
+            
             frame_count = len([f for f in os.listdir("frames") if f.endswith('.png')])
             if frame_count == 0:
                 self.log("❌ Не вдалося витягти кадри з відео")
@@ -200,7 +200,7 @@ class UpscaleThread(QThread):
                 return
             self.log(f"[i] Витягнуто кадрів: {frame_count}")
 
-            # Перевірка середовища
+            
             venv_python = os.path.join("Real-ESRGAN", ".venv", "Scripts", "python.exe")
             if os.name != "nt":
                 venv_python = os.path.join("Real-ESRGAN", ".venv", "bin", "python")
@@ -212,7 +212,7 @@ class UpscaleThread(QThread):
                 self.done_signal.emit(False)
                 return
 
-            # Перевірка та встановлення залежностей
+            
             self.log("[i] Перевірка залежностей Real-ESRGAN...")
             check_deps_cmd = [
                 venv_python,
@@ -236,7 +236,7 @@ class UpscaleThread(QThread):
             base_scale = min(int(s.replace('x', '')) for s in model_categories[self.category][self.model_name].keys())
             target_scale_int = int(self.scale.replace("x", ""))
 
-            # Функція для апскейлу кадрів
+            
             def run_upscale(model_file, in_folder, out_folder):
                 self.log(f"[✔] Апскейл кадрів: {model_file}...")
                 frames = [f for f in os.listdir(in_folder) if f.endswith('.png')]
@@ -245,14 +245,14 @@ class UpscaleThread(QThread):
                     self.log("❌ Не знайдено кадрів для апскейлу.")
                     return False
 
-                # Запуск процесу апскейлу
+                
                 cmd = [
                     venv_python,
                     realesrgan_script,
                     "-i", in_folder,
                     "-o", out_folder,
                     "-n", model_file.replace(".pth", ""),
-                    "--tile", "0"  # Без розбиття на тайли
+                    "--tile", "0"  
                 ]
 
                 process = subprocess.Popen(
@@ -264,7 +264,7 @@ class UpscaleThread(QThread):
                     universal_newlines=True
                 )
 
-                # Моніторинг прогресу
+                
                 processed = 0
                 progress_pattern = re.compile(r'Processing.*?(\d+)/(\d+)')
                 start_time = time.time()
@@ -282,7 +282,7 @@ class UpscaleThread(QThread):
                     line = line.strip()
                     self.log(line)
 
-                    # Спроба знайти прогрес у виводі
+                
                     match = progress_pattern.search(line)
                     if match:
                         current = int(match.group(1))
@@ -290,7 +290,7 @@ class UpscaleThread(QThread):
                         self.progress_signal.emit(current, total_frames)
                         processed = current
                     else:
-                        # Оновлюємо прогрес на основі часу
+                
                         elapsed = time.time() - start_time
                         if elapsed > 0 and processed > 0:
                             fps = processed / elapsed
@@ -306,7 +306,7 @@ class UpscaleThread(QThread):
 
                 return True
 
-            # Виконання апскейлу
+            
             if target_scale_int == base_scale:
                 if not run_upscale(model_file_name, "frames", "upscaled"):
                     self.done_signal.emit(False)
@@ -324,11 +324,11 @@ class UpscaleThread(QThread):
                         self.done_signal.emit(False)
                         return
 
-            # Збирання відео зі звуком
+            
             self.log("[✔] Збирання відео...")
             output_path = f"res/{self.output_name}.mp4"
 
-            # Команда для збирання відео
+            
             ffmpeg_cmd = [
                 "ffmpeg", "-y",
                 "-framerate", str(fps),
@@ -339,16 +339,16 @@ class UpscaleThread(QThread):
                 "-pix_fmt", "yuv420p",
             ]
 
-            # Додаємо аудіо якщо воно було витягнуте
+        
             if has_audio and os.path.exists(audio_path):
                 ffmpeg_cmd.extend(["-i", audio_path, "-c:a", "copy"])
                 ffmpeg_cmd.append("-map")
                 ffmpeg_cmd.append("0:v")
                 ffmpeg_cmd.append("-map")
                 ffmpeg_cmd.append("1:a")
-                ffmpeg_cmd.append("-shortest")  # Забезпечуємо синхронізацію
+                ffmpeg_cmd.append("-shortest")  
             else:
-                ffmpeg_cmd.append("-an")  # Без аудіо
+                ffmpeg_cmd.append("-an")  
 
             ffmpeg_cmd.append(output_path)
 
@@ -358,7 +358,7 @@ class UpscaleThread(QThread):
                 self.done_signal.emit(False)
                 return
 
-            # Видалення тимчасового аудіо файлу
+            
             if has_audio and os.path.exists(audio_path):
                 try:
                     os.remove(audio_path)
@@ -366,7 +366,7 @@ class UpscaleThread(QThread):
                 except Exception as e:
                     self.log(f"⚠️ Не вдалося видалити тимчасовий аудіо файл: {str(e)}")
 
-            # Очистка тимчасових файлів
+        
             self.log("[i] Очистка тимчасових файлів...")
             for folder in ["frames", "upscaled"]:
                 for f in os.listdir(folder):
@@ -470,7 +470,7 @@ class MainWindow(QWidget):
         self.layout.setSpacing(10)
         self.layout.setContentsMargins(15, 15, 15, 15)
 
-        # Вибір відео
+        
         video_layout = QHBoxLayout()
         video_layout.setSpacing(10)
         self.video_label = QLabel("Вхідне відео: (не вибрано)")
@@ -481,13 +481,13 @@ class MainWindow(QWidget):
         video_layout.addWidget(self.btn_browse_video, 30)
         self.layout.addLayout(video_layout)
 
-        # Вибір моделі
+        
         self.model_groupbox = QGroupBox("Оберіть модель та масштаб")
         grid = QGridLayout()
         grid.setSpacing(8)
         self.model_radio_map = {}
 
-        # Створення кнопок для моделей
+        
         row, col = 0, 0
         for category, models in model_categories.items():
             cat_label = QLabel(f"<b>{category}</b>")
@@ -517,7 +517,7 @@ class MainWindow(QWidget):
         self.model_groupbox.setLayout(grid)
         self.layout.addWidget(self.model_groupbox)
 
-        # Назва вихідного файлу
+        
         output_layout = QHBoxLayout()
         output_layout.setSpacing(10)
         output_label = QLabel("Ім'я вихідного файлу:")
@@ -527,12 +527,12 @@ class MainWindow(QWidget):
         output_layout.addWidget(self.output_edit)
         self.layout.addLayout(output_layout)
 
-        # Логування
+        
         self.log = QTextEdit()
         self.log.setMinimumHeight(200)
         self.layout.addWidget(self.log)
 
-        # Кнопки управління
+        
         button_layout = QHBoxLayout()
         self.btn_start = QPushButton("Старт")
         self.btn_start.setMinimumHeight(40)
@@ -570,14 +570,14 @@ class MainWindow(QWidget):
         self.selected_category, self.selected_model, self.selected_scale = self.model_radio_map[sender]
         self.log.append(f"[✔] Обрана модель: {self.selected_model}, масштаб: {self.selected_scale}")
 
-        # Генерація назви файлу
+        
         if hasattr(self, 'video_path') and self.video_path:
             base_name = os.path.splitext(os.path.basename(self.video_path))[0]
             self.output_edit.setText(f"{base_name}_{self.selected_model}_{self.selected_scale}")
         else:
             self.output_edit.setText(f"output_{self.selected_model}_{self.selected_scale}")
 
-        # Виведення інформації про розміри
+        
         if hasattr(self, 'video_path') and self.video_path:
             try:
                 cmd = [
@@ -611,14 +611,14 @@ class MainWindow(QWidget):
             QMessageBox.warning(self, "Помилка", "Оберіть модель та масштаб!")
             return
 
-        # Перевірка назви вихідного файлу
+        
         output_name = self.output_edit.text().strip()
         if not output_name:
             base_name = os.path.splitext(os.path.basename(self.video_path))[0]
             output_name = f"{base_name}_{self.selected_model}_{self.selected_scale}"
             self.output_edit.setText(output_name)
 
-        # Запуск процесу
+        
         self.btn_start.setEnabled(False)
         self.btn_stop.setEnabled(True)
         self.btn_browse_video.setEnabled(False)
