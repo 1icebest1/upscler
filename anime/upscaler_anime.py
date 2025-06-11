@@ -9,12 +9,12 @@ def print_error(msg):
     print(f"\n❌ {msg}")
     sys.exit(1)
 
-# Підготовка директорій
+
 print_step("Підготовка директорій...")
 os.makedirs("frames", exist_ok=True)
 os.makedirs("upscaled", exist_ok=True)
 
-# Витяг кадрів з відео
+
 print_step("Витяг кадрів з відео...")
 result = subprocess.run([
     "ffmpeg", "-y", "-i", "myvideo.mp4", "frames/frame_%05d.png"
@@ -22,7 +22,7 @@ result = subprocess.run([
 if result.returncode != 0:
     print_error(f"Помилка під час витягування кадрів:\n{result.stderr}")
 
-# Перевірка Real-ESRGAN
+
 print_step("Перевірка середовища Real-ESRGAN...")
 
 venv_python = os.path.join("Real-ESRGAN", ".venv", "Scripts", "python.exe") if os.name == "nt" else os.path.join("Real-ESRGAN", ".venv", "bin", "python")
@@ -40,7 +40,7 @@ if not os.path.exists(realesrgan_script):
 if not os.path.exists(model_path):
     print_error(f"Модель {model_file_name} не знайдена в Real-ESRGAN/weights/. Скопіюй її туди.")
 
-# Перевірка CUDA
+
 print_step("Перевірка доступності CUDA в середовищі Real-ESRGAN...")
 
 check_cuda = subprocess.run([
@@ -51,7 +51,7 @@ print(f"CUDA доступна: {check_cuda.stdout.strip()}")
 if "True" not in check_cuda.stdout:
     print("⚠️  Увага: CUDA недоступна. Real-ESRGAN буде використовувати CPU (повільно).")
 
-# Запуск апскейлу з новою моделлю
+
 print_step("Запуск апскейлу через Real-ESRGAN...")
 
 result = subprocess.run([
@@ -65,7 +65,7 @@ result = subprocess.run([
 if result.returncode != 0:
     print_error(f"Помилка під час апскейлу кадрів:\n{result.stderr}")
 
-# Збирання відео назад
+
 print_step("Збирання апскейлених кадрів у відео...")
 
 first_frame = os.path.join("upscaled", "frame_00001_out.png")
